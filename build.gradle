@@ -34,3 +34,11 @@ sourceSets {
 tasks.named('run') {
     standardInput = System.in
 }
+
+// Tarea para generar visualizaciones automáticamente
+tasks.register('visualizar', JavaExec) {
+    group = 'application'
+    description = 'Genera visualizaciones 2D del grafo en formato JPG'
+    mainClass = 'com.mio.GenerarVisualizacion'
+    classpath = sourceSets.main.runtimeClasspath
+}
