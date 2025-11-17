@@ -1,9 +1,9 @@
 # Visualización 2D del Grafo - Sistema MIO
 
 ### INTEGRANTES: Juan Sebastian Poveda & Santiago Cardenas
-:::note
- Se observa que el grafo es similar al mapa de la ciudad de Cali por lo tanto, se presume que es correcto. 
-:::
+> **Note**
+> 
+> Se observa que el grafo es similar al mapa de la ciudad de Cali, por lo tanto, se presume que es correcto.
 
 
 ## Uso rápido
