@@ -29,46 +29,66 @@ public class TransportGraph {
     
     /**
      * Construye el grafo creando arcos entre paradas consecutivas
+     * Se agrupan por línea, orientación Y variante para evitar duplicados
      */
     private void construirGrafo() {
-        // Organizar lineStops por lineId y orientation
-        Map<Integer, Map<Integer, List<LineStop>>> lineStopsPorLinea = new HashMap<>();
+        // Organizar lineStops por lineId, orientation y lineVariant
+        Map<Integer, Map<Integer, Map<Integer, List<LineStop>>>> lineStopsPorLinea = new HashMap<>();
         
         for (LineStop ls : lineStops) {
             lineStopsPorLinea
                 .computeIfAbsent(ls.getLineId(), k -> new HashMap<>())
-                .computeIfAbsent(ls.getOrientation(), k -> new ArrayList<>())
+                .computeIfAbsent(ls.getOrientation(), k -> new HashMap<>())
+                .computeIfAbsent(ls.getLineVariant(), k -> new ArrayList<>())
                 .add(ls);
         }
         
-        // Para cada línea y orientación, crear arcos entre paradas consecutivas
-        for (Map.Entry<Integer, Map<Integer, List<LineStop>>> entry : lineStopsPorLinea.entrySet()) {
+        // Para cada línea y orientación, crear arcos entre paradas consecutivas de TODAS las variantes
+        for (Map.Entry<Integer, Map<Integer, Map<Integer, List<LineStop>>>> entry : lineStopsPorLinea.entrySet()) {
             int lineId = entry.getKey();
-            Map<Integer, List<LineStop>> orientaciones = entry.getValue();
+            Map<Integer, Map<Integer, List<LineStop>>> orientaciones = entry.getValue();
             
             arcosPorLineaYOrientacion.put(lineId, new HashMap<>());
             
-            for (Map.Entry<Integer, List<LineStop>> orientEntry : orientaciones.entrySet()) {
+            for (Map.Entry<Integer, Map<Integer, List<LineStop>>> orientEntry : orientaciones.entrySet()) {
                 int orientation = orientEntry.getKey();
-                List<LineStop> paradas = orientEntry.getValue();
+                Map<Integer, List<LineStop>> variantes = orientEntry.getValue();
                 
-                // Ordenar por secuencia
-                Collections.sort(paradas);
-                
+                // Usaremos un Set para evitar arcos duplicados
+                Set<String> arcosUnicos = new HashSet<>();
                 List<Arco> arcos = new ArrayList<>();
                 
-                // Crear arcos entre paradas consecutivas
-                for (int i = 0; i < paradas.size() - 1; i++) {
-                    LineStop current = paradas.get(i);
-                    LineStop next = paradas.get(i + 1);
+                // Procesar cada variante de la ruta
+                for (Map.Entry<Integer, List<LineStop>> variantEntry : variantes.entrySet()) {
+                    List<LineStop> paradas = variantEntry.getValue();
                     
-                    Stop stopOrigen = stops.get(current.getStopId());
-                    Stop stopDestino = stops.get(next.getStopId());
+                    // Ordenar por secuencia
+                    Collections.sort(paradas);
                     
-                    if (stopOrigen != null && stopDestino != null) {
-                        Arco arco = new Arco(stopOrigen, stopDestino, lineId, orientation, 
-                                            current.getStopSequence());
-                        arcos.add(arco);
+                    // Crear arcos solo entre paradas CONSECUTIVAS
+                    for (int i = 0; i < paradas.size() - 1; i++) {
+                        LineStop current = paradas.get(i);
+                        LineStop next = paradas.get(i + 1);
+                        
+                        Stop stopOrigen = stops.get(current.getStopId());
+                        Stop stopDestino = stops.get(next.getStopId());
+                        
+                        // Solo crear arco si:
+                        // 1. Ambas paradas existen
+                        // 2. Son paradas DIFERENTES (evitar autoloops)
+                        // 3. No se ha creado ya este arco
+                        if (stopOrigen != null && stopDestino != null && 
+                            current.getStopId() != next.getStopId()) {
+                            
+                            String arcoKey = stopOrigen.getStopId() + "->" + stopDestino.getStopId();
+                            
+                            if (!arcosUnicos.contains(arcoKey)) {
+                                Arco arco = new Arco(stopOrigen, stopDestino, lineId, orientation, 
+                                                    current.getStopSequence());
+                                arcos.add(arco);
+                                arcosUnicos.add(arcoKey);
+                            }
+                        }
                     }
                 }
                 
