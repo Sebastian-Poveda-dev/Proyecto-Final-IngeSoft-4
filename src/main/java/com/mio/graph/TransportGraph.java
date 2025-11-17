@@ -15,21 +15,22 @@ public class TransportGraph {
     private Map<Integer, Stop> stops;
     private List<LineStop> lineStops;
     
-    // Arcos organizados por línea y orientación
-    private Map<Integer, Map<Integer, List<Arco>>> arcosPorLineaYOrientacion;
+    // Arcos organizados por línea, orientación y variante
+    // lineId -> orientation -> variant -> List<Arco>
+    private Map<Integer, Map<Integer, Map<Integer, List<Arco>>>> arcosPorLineaOrientacionVariante;
     
     public TransportGraph(Map<Integer, Line> lines, Map<Integer, Stop> stops, List<LineStop> lineStops) {
         this.lines = lines;
         this.stops = stops;
         this.lineStops = lineStops;
-        this.arcosPorLineaYOrientacion = new HashMap<>();
+        this.arcosPorLineaOrientacionVariante = new HashMap<>();
         
         construirGrafo();
     }
     
     /**
      * Construye el grafo creando arcos entre paradas consecutivas
-     * Se agrupan por línea, orientación Y variante para evitar duplicados
+     * Mantiene las variantes de ruta separadas
      */
     private void construirGrafo() {
         // Organizar lineStops por lineId, orientation y lineVariant
@@ -43,27 +44,28 @@ public class TransportGraph {
                 .add(ls);
         }
         
-        // Para cada línea y orientación, crear arcos entre paradas consecutivas de TODAS las variantes
+        // Para cada línea, orientación y variante, crear arcos entre paradas consecutivas
         for (Map.Entry<Integer, Map<Integer, Map<Integer, List<LineStop>>>> entry : lineStopsPorLinea.entrySet()) {
             int lineId = entry.getKey();
             Map<Integer, Map<Integer, List<LineStop>>> orientaciones = entry.getValue();
             
-            arcosPorLineaYOrientacion.put(lineId, new HashMap<>());
+            arcosPorLineaOrientacionVariante.put(lineId, new HashMap<>());
             
             for (Map.Entry<Integer, Map<Integer, List<LineStop>>> orientEntry : orientaciones.entrySet()) {
                 int orientation = orientEntry.getKey();
                 Map<Integer, List<LineStop>> variantes = orientEntry.getValue();
                 
-                // Usaremos un Set para evitar arcos duplicados
-                Set<String> arcosUnicos = new HashSet<>();
-                List<Arco> arcos = new ArrayList<>();
+                arcosPorLineaOrientacionVariante.get(lineId).put(orientation, new HashMap<>());
                 
-                // Procesar cada variante de la ruta
+                // Procesar cada variante de la ruta POR SEPARADO
                 for (Map.Entry<Integer, List<LineStop>> variantEntry : variantes.entrySet()) {
+                    int variant = variantEntry.getKey();
                     List<LineStop> paradas = variantEntry.getValue();
                     
                     // Ordenar por secuencia
                     Collections.sort(paradas);
+                    
+                    List<Arco> arcos = new ArrayList<>();
                     
                     // Crear arcos solo entre paradas CONSECUTIVAS
                     for (int i = 0; i < paradas.size() - 1; i++) {
@@ -76,33 +78,27 @@ public class TransportGraph {
                         // Solo crear arco si:
                         // 1. Ambas paradas existen
                         // 2. Son paradas DIFERENTES (evitar autoloops)
-                        // 3. No se ha creado ya este arco
                         if (stopOrigen != null && stopDestino != null && 
                             current.getStopId() != next.getStopId()) {
                             
-                            String arcoKey = stopOrigen.getStopId() + "->" + stopDestino.getStopId();
-                            
-                            if (!arcosUnicos.contains(arcoKey)) {
-                                Arco arco = new Arco(stopOrigen, stopDestino, lineId, orientation, 
-                                                    current.getStopSequence());
-                                arcos.add(arco);
-                                arcosUnicos.add(arcoKey);
-                            }
+                            Arco arco = new Arco(stopOrigen, stopDestino, lineId, orientation, 
+                                                current.getStopSequence());
+                            arcos.add(arco);
                         }
                     }
+                    
+                    arcosPorLineaOrientacionVariante.get(lineId).get(orientation).put(variant, arcos);
                 }
-                
-                arcosPorLineaYOrientacion.get(lineId).put(orientation, arcos);
             }
         }
     }
     
     /**
-     * Muestra el grafo completo en consola, organizado por ruta y orientación
+     * Muestra el grafo completo en consola, organizado por ruta, orientación y variante
      */
     public void mostrarGrafo() {
         // Obtener todas las líneas ordenadas por ID
-        List<Integer> lineIds = new ArrayList<>(arcosPorLineaYOrientacion.keySet());
+        List<Integer> lineIds = new ArrayList<>(arcosPorLineaOrientacionVariante.keySet());
         Collections.sort(lineIds);
         
         System.out.println("========================================");
@@ -118,29 +114,41 @@ public class TransportGraph {
                 System.out.println(" Line ID: " + lineId);
                 System.out.println("================================================================");
                 
-                Map<Integer, List<Arco>> orientaciones = arcosPorLineaYOrientacion.get(lineId);
+                Map<Integer, Map<Integer, List<Arco>>> orientaciones = arcosPorLineaOrientacionVariante.get(lineId);
                 
                 // Mostrar orientación IDA (0)
                 if (orientaciones.containsKey(0)) {
-                    List<Arco> arcosIda = orientaciones.get(0);
-                    System.out.println("\n--- SENTIDO IDA (Orientation: 0) ---");
-                    System.out.println("  | Total de arcos: " + arcosIda.size());
-                    System.out.println("  -------------------------------------");
+                    Map<Integer, List<Arco>> variantes = orientaciones.get(0);
+                    List<Integer> variantIds = new ArrayList<>(variantes.keySet());
+                    Collections.sort(variantIds);
                     
-                    for (Arco arco : arcosIda) {
-                        System.out.println(arco);
+                    for (int variantId : variantIds) {
+                        List<Arco> arcosIda = variantes.get(variantId);
+                        System.out.println("\n--- SENTIDO IDA (Orientation: 0, Variante: " + variantId + ") ---");
+                        System.out.println("  | Total de arcos: " + arcosIda.size());
+                        System.out.println("  -------------------------------------");
+                        
+                        for (Arco arco : arcosIda) {
+                            System.out.println(arco);
+                        }
                     }
                 }
                 
                 // Mostrar orientación VUELTA (1)
                 if (orientaciones.containsKey(1)) {
-                    List<Arco> arcosVuelta = orientaciones.get(1);
-                    System.out.println("\n---- SENTIDO VUELTA (Orientation: 1) ---");
-                    System.out.println("  | Total de arcos: " + arcosVuelta.size());
-                    System.out.println("  -----------------------------------------");
+                    Map<Integer, List<Arco>> variantes = orientaciones.get(1);
+                    List<Integer> variantIds = new ArrayList<>(variantes.keySet());
+                    Collections.sort(variantIds);
                     
-                    for (Arco arco : arcosVuelta) {
-                        System.out.println(arco);
+                    for (int variantId : variantIds) {
+                        List<Arco> arcosVuelta = variantes.get(variantId);
+                        System.out.println("\n---- SENTIDO VUELTA (Orientation: 1, Variante: " + variantId + ") ---");
+                        System.out.println("  | Total de arcos: " + arcosVuelta.size());
+                        System.out.println("  -----------------------------------------");
+                        
+                        for (Arco arco : arcosVuelta) {
+                            System.out.println(arco);
+                        }
                     }
                 }
                 
@@ -156,20 +164,28 @@ public class TransportGraph {
      * Muestra estadísticas generales del grafo
      */
     private void mostrarEstadisticas() {
-        int totalLineas = arcosPorLineaYOrientacion.size();
+        int totalLineas = arcosPorLineaOrientacionVariante.size();
         int totalArcos = 0;
         int totalArcosIda = 0;
         int totalArcosVuelta = 0;
+        int totalVariantes = 0;
         
-        for (Map<Integer, List<Arco>> orientaciones : arcosPorLineaYOrientacion.values()) {
-            for (Map.Entry<Integer, List<Arco>> entry : orientaciones.entrySet()) {
-                int count = entry.getValue().size();
-                totalArcos += count;
+        for (Map<Integer, Map<Integer, List<Arco>>> orientaciones : arcosPorLineaOrientacionVariante.values()) {
+            for (Map.Entry<Integer, Map<Integer, List<Arco>>> orientEntry : orientaciones.entrySet()) {
+                int orientation = orientEntry.getKey();
+                Map<Integer, List<Arco>> variantes = orientEntry.getValue();
                 
-                if (entry.getKey() == 0) {
-                    totalArcosIda += count;
-                } else {
-                    totalArcosVuelta += count;
+                totalVariantes += variantes.size();
+                
+                for (List<Arco> arcos : variantes.values()) {
+                    int count = arcos.size();
+                    totalArcos += count;
+                    
+                    if (orientation == 0) {
+                        totalArcosIda += count;
+                    } else {
+                        totalArcosVuelta += count;
+                    }
                 }
             }
         }
@@ -178,6 +194,7 @@ public class TransportGraph {
         System.out.println("ESTADISTICAS DEL GRAFO");
         System.out.println("========================================");
         System.out.println("Total de lineas/rutas: " + totalLineas);
+        System.out.println("Total de variantes: " + totalVariantes);
         System.out.println("Total de paradas: " + stops.size());
         System.out.println("Total de arcos: " + totalArcos);
         System.out.println("  - Arcos en sentido IDA: " + totalArcosIda);
@@ -186,10 +203,10 @@ public class TransportGraph {
     }
     
     /**
-     * Obtiene los arcos de una línea específica
+     * Obtiene los arcos de una línea específica (con todas sus variantes)
      */
-    public Map<Integer, List<Arco>> getArcosPorLinea(int lineId) {
-        return arcosPorLineaYOrientacion.get(lineId);
+    public Map<Integer, Map<Integer, List<Arco>>> getArcosPorLinea(int lineId) {
+        return arcosPorLineaOrientacionVariante.get(lineId);
     }
     
     /**
