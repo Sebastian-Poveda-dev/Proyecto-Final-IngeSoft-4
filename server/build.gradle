@@ -1,0 +1,46 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Dependencia del módulo común
+    implementation project(':common')
+    // ZeroC ICE
+    implementation 'com.zeroc:ice:3.7.10'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+application {
+    mainClass = 'com.mio.server.ServerApp'
+}
+
+tasks.named('run') {
+    standardInput = System.in
+}
+
+// Tarea para ejecutar Main (procesamiento original del grafo)
+tasks.register('runMain', JavaExec) {
+    group = 'application'
+    description = 'Ejecuta el procesamiento original del grafo MIO'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.mio.Main'
+    standardInput = System.in
+}
+
+// Tarea para generar visualizaciones automáticamente
+tasks.register('visualizar', JavaExec) {
+    group = 'application'
+    description = 'Genera visualizaciones 2D del grafo en formato JPG'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.mio.GenerarVisualizacion'
+}

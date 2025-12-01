@@ -6,3 +6,10 @@
  */
 
 rootProject.name = 'PYF_INGIV'
+
+// Subproyectos del sistema distribuido MIO
+include 'common'    // Modelos, interfaces ICE compartidas
+include 'server'    // DataReceiver, CCOController, Master, Aggregator
+include 'bus'       // Emisor de datagramas
+include 'worker'    // Workers para procesamiento distribuido
+include 'client'    // Cliente para consultas

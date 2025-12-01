@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // ZeroC ICE para comunicación distribuida
+    implementation 'com.zeroc:ice:3.7.10'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java', 'build/generated-src']
+        }
+    }
+}
+
+// Tarea para compilar archivos .ice usando slice2java
+tasks.register('compileSlice', Exec) {
+    group = 'build'
+    description = 'Compila archivos Slice (.ice) a código Java'
+    
+    def sliceDir = file('src/main/slice')
+    def outputDir = file('build/generated-src')
+    
+    inputs.dir sliceDir
+    outputs.dir outputDir
+    
+    doFirst {
+        outputDir.mkdirs()
+    }
+    
+    commandLine 'slice2java', '--output-dir', outputDir.absolutePath, 
+                "${sliceDir.absolutePath}/DataTransfer.ice"
+}
+
+// Asegurar que slice2java se ejecute antes de compilar Java
+tasks.named('compileJava') {
+    dependsOn 'compileSlice'
+}

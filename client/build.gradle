@@ -1,0 +1,29 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Dependencia del módulo común
+    implementation project(':common')
+    // ZeroC ICE
+    implementation 'com.zeroc:ice:3.7.10'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+application {
+    mainClass = 'com.mio.client.ClientApp'
+}
+
+tasks.named('run') {
+    standardInput = System.in
+}
